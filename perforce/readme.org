@@ -1,0 +1,290 @@
+
+https://docs.unrealengine.com/en-US/Engine/Basics/SourceControl/Perforce/index.html
+https://www.froyok.fr/blog/2018-09-setting-up-perforce-with-docker-for-unreal-engine-4
+
+
+* Build docker image
+Note this link is out of date, I had to install helix-p4d instead of perforce-server
+https://www.perforce.com/manuals/v15.1/dvcs/_installing_perforce_server_15_1_on_linux.html
+
+create for for perforce repo source
+
+** Debian Base Image
+#+BEGIN_SRC text :tangle docker/perforce.sources.list
+deb http://package.perforce.com/apt/ubuntu precise release
+#+END_SRC
+
+http://manpages.ubuntu.com/manpages/xenial/man8/apt-key.8.html
+https://blog.logrocket.com/reduce-docker-image-sizes-using-multi-stage-builds/
+
+The multi stage build is probably unessecary. But to save the space of
+installing wget on my image I download the gpg key in a seperate stage.
+
+#+BEGIN_SRC yaml :tangle docker/Dockerfile
+FROM debian:sid as download-gpg
+RUN apt-get update
+RUN apt-get install -y wget
+RUN wget -q http://package.perforce.com/perforce.pubkey -O- > perforce-key
+#+END_SRC
+
+
+#+BEGIN_SRC yaml :tangle docker/Dockerfile
+FROM debian:sid
+RUN apt-get update &&  apt-get install -y gnupg2 gnupg gnupg1
+copy --from=download-gpg perforce-key perforce-key
+copy perforce.sources.list /etc/apt/sources.list.d/perforce.sources.list
+copy run.sh run.sh
+#Note the apt-key should not be parsed error comes 
+#from combining apt-key add and apt-get update 
+#we aren't actually parseing so this warning is okay
+RUN apt-key add perforce-key  && apt-get update 
+RUN apt-get install -y  helix-p4d
+EXPOSE 1666
+ENTRYPOINT bash ./run.sh 
+#+END_SRC
+
+This is the build command
+#+BEGIN_SRC bash :dir docker
+docker build . -t jascase901/perforce-server
+#+END_SRC
+
+#+RESULTS:
+| Sending      | build        | context                           | to         | Docker                | daemon                                        | 7.68kB                                      |           |         |              |        |       |        |
+| Step         | 1/13         | :                                 | FROM       | debian:sid            | as                                            | download-gpg                                |           |         |              |        |       |        |
+| --->         | ab0c0932f7ec |                                   |            |                       |                                               |                                             |           |         |              |        |       |        |
+| Step         | 2/13         | :                                 | RUN        | apt-get               | update                                        |                                             |           |         |              |        |       |        |
+| --->         | Using        | cache                             |            |                       |                                               |                                             |           |         |              |        |       |        |
+| --->         | 5d39a61aa912 |                                   |            |                       |                                               |                                             |           |         |              |        |       |        |
+| Step         | 3/13         | :                                 | RUN        | apt-get               | install                                       | -y                                          | wget      |         |              |        |       |        |
+| --->         | Using        | cache                             |            |                       |                                               |                                             |           |         |              |        |       |        |
+| --->         | 74cd885afd4a |                                   |            |                       |                                               |                                             |           |         |              |        |       |        |
+| Step         | 4/13         | :                                 | RUN        | wget                  | -q                                            | http://package.perforce.com/perforce.pubkey | -O-       | >       | perforce-key |        |       |        |
+| --->         | Using        | cache                             |            |                       |                                               |                                             |           |         |              |        |       |        |
+| --->         | 036d7a1103d7 |                                   |            |                       |                                               |                                             |           |         |              |        |       |        |
+| Step         | 5/13         | :                                 | FROM       | debian:sid            |                                               |                                             |           |         |              |        |       |        |
+| --->         | ab0c0932f7ec |                                   |            |                       |                                               |                                             |           |         |              |        |       |        |
+| Step         | 6/13         | :                                 | RUN        | apt-get               | update                                        | &&                                          | apt-get   | install | -y           | gnupg2 | gnupg | gnupg1 |
+| --->         | Using        | cache                             |            |                       |                                               |                                             |           |         |              |        |       |        |
+| --->         | b3d1eb265ac9 |                                   |            |                       |                                               |                                             |           |         |              |        |       |        |
+| Step         | 7/13         | :                                 | copy       | --from=download-gpg   | perforce-key                                  | perforce-key                                |           |         |              |        |       |        |
+| --->         | Using        | cache                             |            |                       |                                               |                                             |           |         |              |        |       |        |
+| --->         | 94ebef7ea23c |                                   |            |                       |                                               |                                             |           |         |              |        |       |        |
+| Step         | 8/13         | :                                 | copy       | perforce.sources.list | /etc/apt/sources.list.d/perforce.sources.list |                                             |           |         |              |        |       |        |
+| --->         | Using        | cache                             |            |                       |                                               |                                             |           |         |              |        |       |        |
+| --->         | 956e4c0d7b9b |                                   |            |                       |                                               |                                             |           |         |              |        |       |        |
+| Step         | 9/13         | :                                 | copy       | run.sh                | run.sh                                        |                                             |           |         |              |        |       |        |
+| --->         | Using        | cache                             |            |                       |                                               |                                             |           |         |              |        |       |        |
+| --->         | a088809361a0 |                                   |            |                       |                                               |                                             |           |         |              |        |       |        |
+| Step         | 10/13        | :                                 | RUN        | apt-key               | add                                           | perforce-key                                | &&        | apt-get | update       |        |       |        |
+| --->         | Using        | cache                             |            |                       |                                               |                                             |           |         |              |        |       |        |
+| --->         | de7a27508d3b |                                   |            |                       |                                               |                                             |           |         |              |        |       |        |
+| Step         | 11/13        | :                                 | RUN        | apt-get               | install                                       | -y                                          | helix-p4d |         |              |        |       |        |
+| --->         | Using        | cache                             |            |                       |                                               |                                             |           |         |              |        |       |        |
+| --->         | 19b7712cf0e2 |                                   |            |                       |                                               |                                             |           |         |              |        |       |        |
+| Step         | 12/13        | :                                 | EXPOSE     | 1666                  |                                               |                                             |           |         |              |        |       |        |
+| --->         | Using        | cache                             |            |                       |                                               |                                             |           |         |              |        |       |        |
+| --->         | 3b46e90eca67 |                                   |            |                       |                                               |                                             |           |         |              |        |       |        |
+| Step         | 13/13        | :                                 | ENTRYPOINT | bash                  | ./run.sh                                      |                                             |           |         |              |        |       |        |
+| --->         | Using        | cache                             |            |                       |                                               |                                             |           |         |              |        |       |        |
+| --->         | f84190a9afbe |                                   |            |                       |                                               |                                             |           |         |              |        |       |        |
+| Successfully | built        | f84190a9afbe                      |            |                       |                                               |                                             |           |         |              |        |       |        |
+| Successfully | tagged       | jascase901/perforce-server:latest |            |                       |                                               |                                             |           |         |              |        |       |        |
+
+Push to docker hub
+#+BEGIN_SRC bash 
+docker push jascase901/perforce-server
+#+END_SRC
+
+#+RESULTS:
+| The           | push      | refers                                                                  | to     | repository | [docker.io/jascase901/perforce-server] |
+| 997e0a288927: | Preparing |                                                                         |        |            |                                        |
+| 25cf1ee3139b: | Preparing |                                                                         |        |            |                                        |
+| 26e7f1110894: | Preparing |                                                                         |        |            |                                        |
+| ca2162509b78: | Preparing |                                                                         |        |            |                                        |
+| 20aaadc8648c: | Preparing |                                                                         |        |            |                                        |
+| c7eb0518e71b: | Preparing |                                                                         |        |            |                                        |
+| 590922355440: | Preparing |                                                                         |        |            |                                        |
+| 590922355440: | Waiting   |                                                                         |        |            |                                        |
+| ca2162509b78: | Layer     | already                                                                 | exists |            |                                        |
+| 20aaadc8648c: | Layer     | already                                                                 | exists |            |                                        |
+| 25cf1ee3139b: | Layer     | already                                                                 | exists |            |                                        |
+| 997e0a288927: | Layer     | already                                                                 | exists |            |                                        |
+| 26e7f1110894: | Layer     | already                                                                 | exists |            |                                        |
+| 590922355440: | Layer     | already                                                                 | exists |            |                                        |
+| c7eb0518e71b: | Layer     | already                                                                 | exists |            |                                        |
+| latest:       | digest:   | sha256:cf9fdc45f949e852e4052e34d55e7130b908dc981a42ed50188ea0aa7930bfeb | size:  |       1787 |                                        |
+
+
+This is a docker compose command for running the server. 
+I cheated here and modified this from this guys github. Who is doing, or perhaps
+has already done the work I am doing here.
+https://github.com/ambakshi/docker-perforce/blob/master/docker-compose.yml
+
+#+BEGIN_SRC conf :tangle docker/envfile
+SERVICE=master
+P4PORT=1666
+P4ROOT=/opt/perforce/servers/master
+USER=jascase901
+PASSWD=ILikeGitBetter
+#+END_SRC
+
+we want this to be case senstive because it is running on windows
+
+#+BEGIN_SRC bash :tangle docker/run.sh
+#Usage: configure-helix-p4d.sh [service-name] [options]
+#
+#    -n                   - Use the following flags in non-interactive mode
+#    -p <P4PORT>          - Perforce Server's address
+#    -r <P4ROOT>          - Perforce Server's root directory
+#    -u <username>        - Perforce super-user login name
+#    -P <password>         - Perforce super-user password
+#    --unicode            - Enable unicode mode on server
+#    --case               - Case-sensitivity (0=sensitive[default],1=insensitive)
+#    -h --help            - Display this help and exit
+
+INSTALL_SCRIPT=/opt/perforce/sbin/configure-helix-p4d.sh
+$INSTALL_SCRIPT $SERVICE \
+                --case 1 \
+                --unicode \
+                -P $PASSWD \
+                -n \
+                -p $P4PORT \
+                -r $P4ROOT \
+                -u $USER
+
+while true; do :; done & # do nothing(:) in background, in an endless loop
+kill -STOP $!            # stop the background process of doing nothing
+wait $!                  # wait forever, because doing nothing process is stopped
+
+#+END_SRC
+
+
+
+#+BEGIN_SRC yaml :tangle docker/docker-compose.yaml 
+
+version: '3'
+services:
+  perforce:
+    image: perforce-server
+    hostname: perforce
+    volumes:
+      - p4depot:/data
+    ports:
+      - "127.0.0.1:1666:1666"
+    env_file:
+      - ./envfile
+
+volumes:
+  p4depot:
+    external: true
+
+#+END_SRC
+
+* k8
+  todo [1/2]
+- [ ] use secrets for password
+- [X] use node-port
+
+#+BEGIN_SRC yaml :tangle deployments/perforce-server.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: perforce-server-dep
+  labels:
+    app: perforce-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: perforce-server
+  template:
+    metadata:
+      labels:
+        app: perforce-server
+    spec:
+      containers:
+      - name: perforce-server
+        image: jascase901/perforce-server:latest
+        ports:
+        - containerPort: 1666
+        envFrom:
+        - configMapRef:
+            name: server-params
+#+END_SRC
+#+BEGIN_SRC yaml :tangle services/perforce-server.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: perforce-server
+  labels:
+    name: perforce-server
+spec:
+  type: NodePort
+  ports:
+    - port: 1666
+      nodePort: 30767
+      name: p4d
+  selector:
+    app: perforce-server
+
+#+END_SRC
+
+https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
+#+BEGIN_SRC bash
+kubectl create configmap server-params \
+       --from-env-file=docker/envfile
+#+END_SRC
+
+#+RESULTS:
+: configmap/server-params created
+
+#+BEGIN_SRC bash
+kubectl create -f deployments
+#+END_SRC
+
+
+#+RESULTS:
+: deployment.apps/perforce-server-dep created
+
+#+BEGIN_SRC bash
+kubectl create -f services
+#+END_SRC
+
+#+RESULTS:
+: service/perforce-server created
+
+#+BEGIN_SRC bash
+kubectl get services
+#+END_SRC
+
+#+RESULTS:
+| NAME            | TYPE      |    CLUSTER-IP | EXTERNAL-IP | PORT(S)        | AGE |
+| kubernetes      | ClusterIP |    10.245.0.1 | <none>      | 443/TCP        | 40h |
+| perforce-server | NodePort  | 10.245.171.20 | <none>      | 1666:30767/TCP | 22m |
+
+
+get ip address
+#+BEGIN_SRC bash
+doctl compute droplet list
+#+END_SRC
+
+#+RESULTS:
+| ID           Name                   Public IPv4     Private IPv4      Public IPv6    Memory    VCPUs    Disk    Region    Image                         Status    Tags                                                       Features              Volumes |                                          |                                  |
+| 172850012    pool-kdxlnh042-5qtc    159.65.68.37    10.138.188.192                   2048      1        50      sfo2      Debian do-kube-1.16.2-do.1    active    k8s                                                                                      | k8s:2f44d72f-5e8b-4e78-b99c-fde1a2d69c9c | k8s:worker    private_networking |
+
+#+BEGIN_SRC bash
+ kubectl patch svc perforce-server -p '{"spec":{"externalIPs":["159.65.68.37"]}}'
+#+END_SRC
+
+#+RESULTS:
+: service/perforce-server patched
+
+
+#+BEGIN_SRC bash
+kubectl get services
+#+END_SRC
+
+#+RESULTS:
+| NAME            | TYPE      |    CLUSTER-IP | EXTERNAL-IP  | PORT(S)        | AGE |
+| kubernetes      | ClusterIP |    10.245.0.1 | <none>       | 443/TCP        | 40h |
+| perforce-server | NodePort  | 10.245.171.20 | 159.65.68.37 | 1666:30767/TCP | 23m |

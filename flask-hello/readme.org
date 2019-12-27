@@ -1,0 +1,119 @@
+create namespace for flask app
+#+BEGIN_SRC bash
+kubectl create namespace flask
+#+END_SRC
+
+#+RESULTS:
+: namespace/flask created
+
+#+BEGIN_SRC bash
+kubectl get namespace
+#+END_SRC
+
+#+RESULTS:
+| NAME            | STATUS | AGE |
+| default         | Active | 15h |
+| flask           | Active | 23s |
+| kube-node-lease | Active | 15h |
+| kube-public     | Active | 15h |
+| kube-system     | Active | 15h |
+
+#+BEGIN_SRC yaml :tangle pods/flask.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: flask-pod
+  labels:
+    app: flask-helloworld
+spec:
+  containers:
+  - name: flask
+    image: hjdo/flask-helloworld:latest
+    ports:
+    - containerPort: 5000
+#+END_SRC
+
+#+BEGIN_SRC bash
+kubectl apply -f pods/flask.yaml -n flask
+#+END_SRC
+
+#+RESULTS:
+: pod/flask-pod created
+
+#+BEGIN_SRC bash
+kubectl get pod -n flask
+#+END_SRC
+
+#+RESULTS:
+| NAME      | READY | STATUS  | RESTARTS | AGE |
+| flask-pod | 1/1   | Running |        0 | 31s |
+
+in a seperate terminal test
+#+BEGIN_SRC 
+kubectl port-forward pods/flask-pod -n flask 5000:5000
+#+END_SRC
+
+#+BEGIN_SRC yaml :tangle deployments/flask.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-dep
+  labels:
+    app: flask-helloworld
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: flask-helloworld
+  template:
+    metadata:
+      labels:
+        app: flask-helloworld
+    spec:
+      containers:
+      - name: flask
+        image: hjdo/flask-helloworld:latest
+        ports:
+        - containerPort: 5000
+#+END_SRC
+
+#+BEGIN_SRC bash
+kubectl apply -f deployments/flask.yaml -n flask
+#+END_SRC
+
+#+RESULTS:
+: deployment.apps/flask-dep created
+
+#+BEGIN_SRC yaml :tangle services/flask.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: flask-svc
+  labels:
+    app: flask-helloworld
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 5000
+    protocol: TCP
+  selector:
+    app: flask-helloworld
+#+END_SRC
+
+
+Note using the load balancer adds 10 dollars a month to the cost of my cluster.
+
+#+BEGIN_SRC bash
+kubectl apply -f services/flask.yaml -n flask
+#+END_SRC
+
+#+RESULTS:
+: service/flask-svc created
+
+#+BEGIN_SRC bash
+kubectl delete -f services/flask.yaml -n flask
+#+END_SRC
+
+#+RESULTS:
+: flask-svc

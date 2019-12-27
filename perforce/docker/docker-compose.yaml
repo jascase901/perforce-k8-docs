@@ -1,0 +1,15 @@
+version: '3'
+services:
+  perforce:
+    image: perforce-server
+    hostname: perforce
+    volumes:
+      - p4depot:/data
+    ports:
+      - "127.0.0.1:1666:1666"
+    env_file:
+      - ./envfile
+
+volumes:
+  p4depot:
+    external: true

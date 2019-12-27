@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: server-params
+  namespace: default
+data:
+  SERVICE:master
+  P4PORT:1666
+  P4ROOT:/opt/perforce/servers/master
+  USER:admin
+  PASSWD:Password

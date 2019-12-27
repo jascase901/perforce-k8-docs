@@ -1,0 +1,38 @@
+
+I chose this version because it matches the version of k8 on my cluster 
+#+BEGIN_SRC bash :dir /home/jasonwq/bin
+curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.16.2/bin/linux/amd64/kubectl
+chmod u+x kubectl
+ls
+#+END_SRC
+
+#+RESULTS:
+: kubectl
+
+For doctl I am just going to use the one in nixpkgs
+#+BEGIN_SRC bash
+nix-shell -p doctl -I nixpkgs=https://github.com/NixOS/nixpkgs/archive/bce9e720df195eb0e6cd4a3735b6717ea4877bba.tar.gz --run "doctl version"
+
+#+END_SRC
+
+#+RESULTS:
+| doctl version 1.35.0-release |               |
+| release 1.36.0 is available  | check it out! |
+
+https://www.digitalocean.com/docs/kubernetes/how-to/connect-to-cluster/
+
+#+END_SRC
+
+authenticate doctl
+#+BEGIN_SRC 
+doctl auth init
+
+#+END_SRC
+https://cloud.digitalocean.com/account/api/tokens?i=916afb
+
+Tell doctl to download kubeconfig for my cluster
+#+BEGIN_SRC bash 
+nix-shell -p doctl -I nixpkgs=https://github.com/NixOS/nixpkgs/archive/bce9e720df195eb0e6cd4a3735b6717ea4877bba.tar.gz --run "doctl kubernetes cluster kubeconfig save  k8s-1-16-2-do-1-sfo2"
+#+END_SRC
+
+#+RESULTS:

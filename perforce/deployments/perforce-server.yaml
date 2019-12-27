@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: perforce-server-dep
+  labels:
+    app: perforce-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: perforce-server
+  template:
+    metadata:
+      labels:
+        app: perforce-server
+    spec:
+      containers:
+      - name: perforce-server
+        image: jascase901/perforce-server:latest
+        ports:
+        - containerPort: 1666
+        envFrom:
+        - configMapRef:
+            name: server-params
