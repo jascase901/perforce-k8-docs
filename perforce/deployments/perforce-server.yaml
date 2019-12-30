@@ -14,9 +14,16 @@ spec:
       labels:
         app: perforce-server
     spec:
+      volumes:
+      - name: my-do-volume
+        persistentVolumeClaim:
+          claimName: perforce-pvc
       containers:
       - name: perforce-server
         image: jascase901/perforce-server:latest
+        volumeMounts:
+        - mountPath: "/data"
+          name: my-do-volume
         ports:
         - containerPort: 1666
         envFrom:

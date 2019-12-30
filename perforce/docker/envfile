@@ -1,5 +1,5 @@
 SERVICE=master
 P4PORT=1666
-P4ROOT=/opt/perforce/servers/master
+P4ROOT=/data/opt/perforce/servers/master
 USER=jascase901
 PASSWD=ILikeGitBetter

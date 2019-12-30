@@ -6,6 +6,6 @@ metadata:
 data:
   SERVICE:master
   P4PORT:1666
-  P4ROOT:/opt/perforce/servers/master
+  P4ROOT:/data/opt/perforce/servers/master
   USER:admin
-  PASSWD:Password
+  PASSWD:ILikeGitBetter

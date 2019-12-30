@@ -123,7 +123,7 @@ https://github.com/ambakshi/docker-perforce/blob/master/docker-compose.yml
 #+BEGIN_SRC conf :tangle docker/envfile
 SERVICE=master
 P4PORT=1666
-P4ROOT=/opt/perforce/servers/master
+P4ROOT=/data/opt/perforce/servers/master
 USER=jascase901
 PASSWD=ILikeGitBetter
 #+END_SRC
@@ -184,107 +184,138 @@ volumes:
   todo [1/2]
 - [ ] use secrets for password
 - [X] use node-port
+** Yaml
+ #+BEGIN_SRC yaml :tangle deployments/perforce-server.yaml
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     name: perforce-server-dep
+     labels:
+       app: perforce-server
+   spec:
+     replicas: 1
+     selector:
+       matchLabels:
+         app: perforce-server
+     template:
+       metadata:
+         labels:
+           app: perforce-server
+       spec:
+         volumes:
+         - name: my-do-volume
+           persistentVolumeClaim:
+             claimName: perforce-pvc
+         containers:
+         - name: perforce-server
+           image: jascase901/perforce-server:latest
+           volumeMounts:
+           - mountPath: "/data"
+             name: my-do-volume
+           ports:
+           - containerPort: 1666
+           envFrom:
+           - configMapRef:
+               name: server-params
+ #+END_SRC
 
-#+BEGIN_SRC yaml :tangle deployments/perforce-server.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: perforce-server-dep
-  labels:
-    app: perforce-server
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: perforce-server
-  template:
-    metadata:
-      labels:
-        app: perforce-server
-    spec:
-      containers:
-      - name: perforce-server
-        image: jascase901/perforce-server:latest
-        ports:
-        - containerPort: 1666
-        envFrom:
-        - configMapRef:
-            name: server-params
-#+END_SRC
-#+BEGIN_SRC yaml :tangle services/perforce-server.yaml
+ #+BEGIN_SRC yaml :tangle services/perforce-server.yaml
+ apiVersion: v1
+ kind: Service
+ metadata:
+   name: perforce-server
+   labels:
+     name: perforce-server
+ spec:
+   type: NodePort
+   ports:
+     - port: 1666
+       nodePort: 30767
+       name: p4d
+   selector:
+     app: perforce-server
+
+ #+END_SRC
+ https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
+ #+BEGIN_SRC bash
+ kubectl create configmap server-params \
+        --from-env-file=docker/envfile
+ #+END_SRC
+
+ #+RESULTS:
+ : configmap/server-params created
+
+ #+BEGIN_SRC bash
+ kubectl create -f deployments
+ #+END_SRC
+
+ #+RESULTS:
+ : perforce-server-dep
+
+#+BEGIN_SRC  bash yaml :tangle volumes/perforce-claim.yaml
 apiVersion: v1
-kind: Service
+kind: PersistentVolumeClaim
 metadata:
-  name: perforce-server
-  labels:
-    name: perforce-server
+  name: perforce-pvc
 spec:
-  type: NodePort
-  ports:
-    - port: 1666
-      nodePort: 30767
-      name: p4d
-  selector:
-    app: perforce-server
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 25Gi
+  storageClassName: do-block-storage
+ 
+ #+END_SRC
 
-#+END_SRC
+ #+BEGIN_SRC bash
+kubectl create -f volumes
+ 
+ #+END_SRC
 
-https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
-#+BEGIN_SRC bash
-kubectl create configmap server-params \
-       --from-env-file=docker/envfile
-#+END_SRC
-
-#+RESULTS:
-: configmap/server-params created
-
-#+BEGIN_SRC bash
-kubectl create -f deployments
-#+END_SRC
+ #+RESULTS:
+ : persistentvolumeclaim/perforce-pvc created
 
 
-#+RESULTS:
-: deployment.apps/perforce-server-dep created
 
-#+BEGIN_SRC bash
-kubectl create -f services
-#+END_SRC
+ #+BEGIN_SRC bash
+ kubectl create -f services
+ #+END_SRC
 
-#+RESULTS:
-: service/perforce-server created
+ #+RESULTS:
+ : service/perforce-server created
 
-#+BEGIN_SRC bash
-kubectl get services
-#+END_SRC
+ #+BEGIN_SRC bash
+ kubectl get services
+ #+END_SRC
 
-#+RESULTS:
-| NAME            | TYPE      |    CLUSTER-IP | EXTERNAL-IP | PORT(S)        | AGE |
-| kubernetes      | ClusterIP |    10.245.0.1 | <none>      | 443/TCP        | 40h |
-| perforce-server | NodePort  | 10.245.171.20 | <none>      | 1666:30767/TCP | 22m |
+ #+RESULTS:
+ | NAME            | TYPE      |    CLUSTER-IP | EXTERNAL-IP | PORT(S)        | AGE |
+ | kubernetes      | ClusterIP |    10.245.0.1 | <none>      | 443/TCP        | 40h |
+ | perforce-server | NodePort  | 10.245.171.20 | <none>      | 1666:30767/TCP | 22m |
 
 
-get ip address
-#+BEGIN_SRC bash
-doctl compute droplet list
-#+END_SRC
+ get public ip address (digital ocean specific)
+ #+BEGIN_SRC bash
+ doctl compute droplet list
+ #+END_SRC
 
-#+RESULTS:
-| ID           Name                   Public IPv4     Private IPv4      Public IPv6    Memory    VCPUs    Disk    Region    Image                         Status    Tags                                                       Features              Volumes |                                          |                                  |
-| 172850012    pool-kdxlnh042-5qtc    159.65.68.37    10.138.188.192                   2048      1        50      sfo2      Debian do-kube-1.16.2-do.1    active    k8s                                                                                      | k8s:2f44d72f-5e8b-4e78-b99c-fde1a2d69c9c | k8s:worker    private_networking |
+ #+RESULTS:
+ | ID           Name                   Public IPv4     Private IPv4      Public IPv6    Memory    VCPUs    Disk    Region    Image                         Status    Tags                                                       Features              Volumes |                                          |                                  |
+ | 172850012    pool-kdxlnh042-5qtc    159.65.68.37    10.138.188.192                   2048      1        50      sfo2      Debian do-kube-1.16.2-do.1    active    k8s                                                                                      | k8s:2f44d72f-5e8b-4e78-b99c-fde1a2d69c9c | k8s:worker    private_networking |
 
-#+BEGIN_SRC bash
- kubectl patch svc perforce-server -p '{"spec":{"externalIPs":["159.65.68.37"]}}'
-#+END_SRC
+ #+BEGIN_SRC bash
+  kubectl patch svc perforce-server -p '{"spec":{"externalIPs":["159.65.68.37"]}}'
+ #+END_SRC
 
-#+RESULTS:
-: service/perforce-server patched
+ #+RESULTS:
+ : service/perforce-server patched
 
 
-#+BEGIN_SRC bash
-kubectl get services
-#+END_SRC
+ #+BEGIN_SRC bash
+ kubectl get services
+ #+END_SRC
 
-#+RESULTS:
-| NAME            | TYPE      |    CLUSTER-IP | EXTERNAL-IP  | PORT(S)        | AGE |
-| kubernetes      | ClusterIP |    10.245.0.1 | <none>       | 443/TCP        | 40h |
-| perforce-server | NodePort  | 10.245.171.20 | 159.65.68.37 | 1666:30767/TCP | 23m |
+ #+RESULTS:
+ | NAME            | TYPE      |    CLUSTER-IP | EXTERNAL-IP  | PORT(S)        | AGE |
+ | kubernetes      | ClusterIP |    10.245.0.1 | <none>       | 443/TCP        | 40h |
+ | perforce-server | NodePort  | 10.245.171.20 | 159.65.68.37 | 1666:30767/TCP | 23m |
